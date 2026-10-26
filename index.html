@@ -38,14 +38,18 @@ nav button.on{color:var(--acc)}
 .res.ok{background:var(--ok)}.res.warn{background:var(--warn)}.res.bad{background:var(--bad)}
 .big{font-size:56px;font-family:ui-serif,Georgia,serif;text-align:center;margin:4px 0}
 .bar{height:10px;background:var(--line);border-radius:6px;overflow:hidden}
+.bar{position:relative}
 .bar i{display:block;height:100%;background:var(--acc);width:0;transition:width .3s}
+#barraEm{position:absolute;left:0;top:0;background:color-mix(in srgb,var(--acc) 35%,transparent)}
+#barra{position:relative}
 .li{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);font-size:14px}
 .li:last-child{border:0}.li small{color:var(--mut)}
 .li button{width:auto;padding:6px 12px;font-size:13px}
+#ultimi{padding:0;overflow:hidden}
 .sw{position:relative;overflow:hidden;border-bottom:1px solid var(--line)}
 .sw:last-child{border:0}
 .sw .bk{position:absolute;inset:0;background:var(--bad);color:#fff;display:flex;align-items:center;justify-content:flex-end;padding-right:16px;font-size:13px;font-weight:600}
-.sw .li{position:relative;background:var(--card);border:0;touch-action:pan-y;transition:transform .2s}
+.sw .li{padding:10px 16px;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;position:relative;background:var(--card);border:0;touch-action:pan-y;transition:transform .2s}
 .sw .li.in{background:color-mix(in srgb,var(--ok) 16%,var(--card))}
 .sw .li.drag{transition:none}
 .filt{display:flex;gap:10px;margin-bottom:10px}.filt .search{flex:1;margin:0}.filt .search input{height:48px;padding-top:0;padding-bottom:0}.filt .search svg{top:14px}.filt button{width:48px;height:48px;flex:none;padding:0;display:flex;align-items:center;justify-content:center}
@@ -58,8 +62,9 @@ nav button.on{color:var(--acc)}
 #ov button{background:#fff;color:#111;max-width:340px;margin-top:10px}
 #toast{position:fixed;left:16px;right:16px;bottom:90px;background:#1f1e1d;color:#fff;padding:14px;border-radius:12px;font-size:14px;text-align:center;display:none;z-index:60}
 button.dng{background:#c62827;color:#fff;margin-top:10px}
-#wiz{position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.55);display:none;align-items:flex-end;justify-content:center}
-#wiz .box{background:var(--card);color:var(--ink);width:100%;max-width:520px;border-radius:20px 20px 0 0;padding:20px 18px calc(20px + env(safe-area-inset-bottom,0px))}
+#wiz{position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.55);display:none;align-items:flex-start;justify-content:center}
+#wiz .box{background:var(--card);color:var(--ink);width:100%;max-width:520px;border-radius:0 0 20px 20px;padding:calc(20px + env(safe-area-inset-top,0px)) 18px 20px;animation:wizDown .25s ease-out}
+@keyframes wizDown{from{transform:translateY(-100%)}to{transform:translateY(0)}}
 #wiz h2{font-size:20px;margin:0 0 10px;font-family:ui-serif,Georgia,serif;font-weight:500}
 #wiz .x{float:right;width:auto;background:none;color:var(--mut);padding:0 4px;font-size:26px;line-height:1}
 #wiz .bar{margin-bottom:16px}
@@ -106,7 +111,7 @@ button.dng{background:#c62827;color:#fff;margin-top:10px}
   <p class="sub">Monitora gli utenti e gli ingressi</p>
   <div class="card">
     <div class="big"><span id="nScan">0</span><span style="font-size:22px;color:var(--mut)"> / 200</span></div>
-    <div class="bar"><i id="barra"></i></div>
+    <div class="bar"><i id="barraEm"></i><i id="barra"></i></div>
     <p class="sub" style="text-align:center;margin:10px 0 0">Biglietti creati: <b id="nEmessi">0</b></p>
   </div>
   <div class="filt"><div class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="cerca" placeholder="Cerca per nome, telefono o codice" autocomplete="off"></div><button class="sec" id="btnOrd"></button></div>
@@ -148,7 +153,7 @@ const fmt = ts => new Date(ts).toLocaleTimeString("it-IT",{hour:"2-digit",minute
 document.querySelectorAll("nav button").forEach(b => b.onclick = () => {
   document.querySelectorAll("nav button").forEach(x => x.classList.toggle("on", x===b));
   document.querySelectorAll(".tab").forEach(t => t.classList.toggle("on", t.id==="t-"+b.dataset.t));
-  if(b.dataset.t!=="leggi") stopCam(); else { $("ov").style.display="none"; pause=false; startCam(); }
+  if(b.dataset.t!=="leggi") stopCam(); else { $("ov").style.display="none"; pause=false; manualOff=false; startCam(); }
   render();
 });
 
@@ -325,7 +330,8 @@ function showRes(ok,title,desc){
   beep(ok); if(ok) nav(120); else nav(300,100,300);
 }
 function check(raw){
-  const code = (raw||"").trim().toUpperCase();
+  const txt = String(raw||"").toUpperCase();
+  const code = CODES.includes(txt.trim()) ? txt.trim() : (CODES.find(c=>txt.includes(c)) || txt.replace(/[^A-Z0-9]/g,""));
   pause=true;
   if(!CODES.includes(code)) showRes(false,"Non valido","Questo codice non esiste.");
   else if(S.scanned[code]) showRes(false,"Già utilizzato","Entrato alle "+fmt(S.scanned[code])+(S.issued[code]?" · "+S.issued[code].name:""));
@@ -335,17 +341,23 @@ function check(raw){
 $("btnAgain").onclick=()=>{ $("ov").style.display="none"; pause=false; if(!stream) startCam(); };
 $("btnWipe").onclick=()=>{ if(confirm("Cancellare TUTTI i dati (biglietti creati, ingressi, impostazioni)? L'operazione non si può annullare.")){ try{localStorage.clear();}catch(e){} location.reload(); } };
 function nav(...p){ try{ navigator.vibrate&&navigator.vibrate(p); }catch(e){} }
-let stream=null, loop=null, pause=false;
+let stream=null, loop=null, pause=false, camReq=0, manualOff=false;
+const onLeggi=()=>$("t-leggi").classList.contains("on");
 async function startCam(){
-  if(stream) return;
+  if(stream || !onLeggi()) return;
+  const my=++camReq;
   try{
-    stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"},width:{ideal:1920},height:{ideal:1080}},audio:false});
+    const ms = await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"},width:{ideal:1920},height:{ideal:1080}},audio:false});
+    // se nel frattempo ho cambiato pagina (o fermato la camera), spengo subito lo stream appena ottenuto
+    if(my!==camReq || !onLeggi()){ ms.getTracks().forEach(t=>t.stop()); return; }
+    stream = ms;
     const tr=stream.getVideoTracks()[0];
     try{ const cap=tr.getCapabilities&&tr.getCapabilities();
       if(cap&&cap.zoom){ const z=Math.min(cap.zoom.max,Math.max(cap.zoom.min,2)); await tr.applyConstraints({advanced:[{zoom:z}]}); }
       if(cap&&cap.focusMode&&cap.focusMode.includes("continuous")) await tr.applyConstraints({advanced:[{focusMode:"continuous"}]});
     }catch(e){}
     const v=$("video"); v.srcObject=stream; await v.play();
+    if(my!==camReq) return;
     $("btnCam").textContent="Ferma fotocamera";
     let bd=null; try{ if("BarcodeDetector" in window) bd=new BarcodeDetector({formats:["qr_code"]}); }catch(e){}
     const cv=document.createElement("canvas"), cx=cv.getContext("2d",{willReadFrequently:true});
@@ -368,18 +380,26 @@ async function startCam(){
   }catch(e){ stream=null; alert("Fotocamera non disponibile: usa l’inserimento manuale del codice."); }
 }
 function stopCam(){
-  clearInterval(loop); if(stream) stream.getTracks().forEach(t=>t.stop()); stream=null;
-  $("btnCam").textContent="Avvia fotocamera"; loop=null;
+  camReq++; clearInterval(loop); loop=null;
+  if(stream) stream.getTracks().forEach(t=>t.stop()); stream=null;
+  const v=$("video"); try{ v.pause(); }catch(e){} v.srcObject=null;
+  $("btnCam").textContent="Avvia fotocamera";
 }
-$("btnCam").onclick = () => stream ? stopCam() : startCam();
+$("btnCam").onclick = () => { if(stream){ manualOff=true; stopCam(); } else { manualOff=false; startCam(); } };
+// App in background / schermo bloccato / scheda nascosta: spegni la camera; al ritorno riparte solo se sei su "Leggi"
+document.addEventListener("visibilitychange",()=>{
+  if(document.hidden) stopCam();
+  else if(onLeggi() && !manualOff && $("ov").style.display!=="flex") startCam();
+});
+window.addEventListener("pagehide",stopCam);
 $("btnVer").onclick = () => { check($("manuale").value); $("manuale").value=""; };
 
 // ---- CONTEGGIO ----
-let entratiSu=true;
+let entratiSu=false;
 function counts(){
   const n=Object.keys(S.scanned).length;
   $("nScan").textContent=n; $("barra").style.width=(n/200*100)+"%";
-  $("nEmessi").textContent=Object.keys(S.issued).length;
+  $("nEmessi").textContent=Object.keys(S.issued).length; $("barraEm").style.width=(Object.keys(S.issued).length/200*100)+"%";
 }
 function match(c,v,q){ return !q || (v.name+" "+c+" "+(v.tel||"")).toLowerCase().includes(q); }
 function render(){
@@ -392,22 +412,36 @@ function render(){
     return a[1].n-b[1].n;
   });
   $("ultimi").innerHTML = rows.length ? rows.map(([c,v])=>{ const t=S.scanned[c];
-    return `<div class="sw" data-c="${c}">${t?'<div class="bk">Annulla ingresso</div>':''}<div class="li${t?' in':''}"><span>${esc(v.name)}<br><small class="mono">${c}${v.tel?" · "+esc(v.tel):""}</small></span><small>${t?"Entrato "+fmt(t):"Non entrato"}</small></div></div>`; }).join("") : '<p class="sub" style="margin:0">'+(q?"Nessun risultato.":"Nessun biglietto creato.")+'</p>';
+    return `<div class="sw" data-c="${c}"><div class="bk">Annulla ingresso</div><div class="li${t?' in':''}"><span>${esc(v.name)}<br><small class="mono">${c}${v.tel?" · "+esc(v.tel):""}</small></span><small>${t?"Entrato alle "+fmt(t):"Non entrato"}</small></div></div>`; }).join("") : '<p class="sub" style="margin:0;padding:16px">'+(q?"Nessun risultato.":"Nessun biglietto creato.")+'</p>';
 }
-// Swipe a sinistra per annullare l'ingresso (la lista non si riordina da sola)
+// Swipe a sinistra = annulla ingresso; tocco prolungato = alterna entrato / non entrato (la lista non si riordina da sola)
+function bubble(){ try{ AC=AC||new (window.AudioContext||window.webkitAudioContext)(); const t=AC.currentTime, o=AC.createOscillator(), g=AC.createGain();
+  o.type="sine"; o.frequency.setValueAtTime(380,t); o.frequency.exponentialRampToValueAtTime(1100,t+.12);
+  g.gain.setValueAtTime(.0001,t); g.gain.exponentialRampToValueAtTime(.35,t+.02); g.gain.exponentialRampToValueAtTime(.0001,t+.18);
+  o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t+.2); }catch(e){} }
+function setRow(li, c, entered){
+  if(entered){ S.scanned[c]=Date.now(); } else { delete S.scanned[c]; }
+  save(); counts();
+  li.classList.toggle("in",entered);
+  li.querySelector(":scope > small").textContent = entered ? "Entrato alle "+fmt(S.scanned[c]) : "Non entrato";
+  bubble(); nav(40);
+}
 (function(){
-  let el=null, x0=0, dx=0, y0=0, moved=false;
+  let el=null, x0=0, dx=0, y0=0, moved=false, timer=null, long=false;
   const L=$("ultimi");
-  L.addEventListener("pointerdown",e=>{ const li=e.target.closest(".li.in"); if(!li) return; el=li; x0=e.clientX; y0=e.clientY; dx=0; moved=false; li.classList.add("drag"); });
-  L.addEventListener("pointermove",e=>{ if(!el) return; dx=Math.min(0,e.clientX-x0); if(Math.abs(e.clientY-y0)>Math.abs(e.clientX-x0)&&!moved){ end(false); return; } if(dx<-6){ moved=true; try{ el.setPointerCapture(e.pointerId); }catch(_){} } el.style.transform="translateX("+dx+"px)"; });
+  L.addEventListener("contextmenu",e=>e.preventDefault());
+  L.addEventListener("pointerdown",e=>{ const li=e.target.closest(".li"); if(!li) return; el=li; x0=e.clientX; y0=e.clientY; dx=0; moved=false; long=false; li.classList.add("drag");
+    clearTimeout(timer); timer=setTimeout(()=>{ if(!el) return; long=true; const c=el.parentNode.dataset.c; setRow(el,c,!S.scanned[c]); el.style.transform=""; },550); });
+  L.addEventListener("pointermove",e=>{ if(!el||long) return;
+    const mx=e.clientX-x0, my=e.clientY-y0;
+    if(Math.abs(mx)>8||Math.abs(my)>8) clearTimeout(timer);
+    if(Math.abs(my)>Math.abs(mx)&&!moved){ end(false); return; }
+    if(!el.classList.contains("in")) return;
+    dx=Math.min(0,mx); if(dx<-6){ moved=true; try{ el.setPointerCapture(e.pointerId); }catch(_){} } el.style.transform="translateX("+dx+"px)"; });
   function end(commit){
-    if(!el) return; const li=el; el=null; li.classList.remove("drag");
-    if(commit && dx<-90){
-      const c=li.parentNode.dataset.c; delete S.scanned[c]; save(); counts();
-      li.style.transform=""; li.classList.remove("in"); li.querySelector("small").textContent="Ingresso annullato";
-      const bk=li.parentNode.querySelector(".bk"); if(bk) bk.remove();
-      try{ navigator.vibrate&&navigator.vibrate(40); }catch(_){}
-    } else li.style.transform="";
+    clearTimeout(timer); if(!el) return; const li=el; el=null; li.classList.remove("drag");
+    if(commit && !long && li.classList.contains("in") && dx<-90){ setRow(li,li.parentNode.dataset.c,false); }
+    li.style.transform="";
   }
   L.addEventListener("pointerup",()=>end(true));
   L.addEventListener("pointercancel",()=>end(false));
