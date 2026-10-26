@@ -48,8 +48,8 @@ nav button.on{color:var(--acc)}
 #ultimi{padding:0;overflow:hidden}
 .sw{position:relative;overflow:hidden;border-bottom:1px solid var(--line)}
 .sw:last-child{border:0}
-.sw .bk{position:absolute;inset:0;background:var(--ok);color:#fff;display:flex;align-items:center;justify-content:flex-end;padding-right:16px;font-size:13px;font-weight:600}
-.sw .bk.go{background:var(--ok)}
+.sw .bk{position:absolute;inset:0;background:var(--bad);color:#fff;display:flex;align-items:center;justify-content:flex-end;padding-right:16px;font-size:13px;font-weight:600; transition: background-color 0.2s ease-out}
+.sw .bk.go{background:var(--ok); transition: background-color 0.2s ease-out}
 .sw .li{padding:10px 16px;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;position:relative;background:var(--card);border:0;touch-action:pan-y;transition:transform .2s}
 .sw .li.in{background:color-mix(in srgb,var(--ok) 16%,var(--card))}
 .sw .li.drag{transition:none}
@@ -424,7 +424,7 @@ function setRow(li, c, entered){
   if(entered){ S.scanned[c]=Date.now(); } else { delete S.scanned[c]; }
   save(); counts();
   li.classList.toggle("in",entered);
-  const bk=li.parentNode.querySelector(".bk"); bk.classList.toggle("go",!entered); bk.textContent = entered ? "Annulla ingresso" : "Segna entrata";
+  const bk=li.parentNode.querySelector(".bk"); bk.classList.toggle("go",!entered); bk.textContent = entered ? "Annulla ingresso" : "Segna ingresso";
   li.querySelector(":scope > small").textContent = entered ? "Entrato alle "+fmt(S.scanned[c]) : "Non entrato";
   bubble(); nav(40);
 }
