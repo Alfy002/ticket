@@ -42,6 +42,13 @@ nav button.on{color:var(--acc)}
 .li{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);font-size:14px}
 .li:last-child{border:0}.li small{color:var(--mut)}
 .li button{width:auto;padding:6px 12px;font-size:13px}
+.sw{position:relative;overflow:hidden;border-bottom:1px solid var(--line)}
+.sw:last-child{border:0}
+.sw .bk{position:absolute;inset:0;background:var(--bad);color:#fff;display:flex;align-items:center;justify-content:flex-end;padding-right:16px;font-size:13px;font-weight:600}
+.sw .li{position:relative;background:var(--card);border:0;touch-action:pan-y;transition:transform .2s}
+.sw .li.in{background:color-mix(in srgb,var(--ok) 16%,var(--card))}
+.sw .li.drag{transition:none}
+.filt{display:flex;gap:10px;margin-bottom:10px}.filt .search{flex:1;margin:0}.filt .search input{height:48px;padding-top:0;padding-bottom:0}.filt .search svg{top:14px}.filt button{width:48px;height:48px;flex:none;padding:0;display:flex;align-items:center;justify-content:center}
 .mono{font-family:ui-monospace,Menlo,monospace}
 
 #ov{position:fixed;inset:0;z-index:50;display:none;flex-direction:column;align-items:center;justify-content:center;gap:18px;color:#fff;text-align:center;padding:24px}
@@ -79,8 +86,6 @@ button.dng{background:#c62827;color:#fff;margin-top:10px}
     <button class="wa" id="btnWa" style="flex:1;width:auto">Invia su WhatsApp</button>
     <button class="sec" id="btnSalva" style="width:40%">Salva</button>
   </div>
-  <h1 style="font-size:18px;margin-top:22px">Biglietti creati</h1>
-  <div class="card" id="lista"></div>
 </section>
 
 <section class="tab" id="t-leggi">
@@ -104,9 +109,8 @@ button.dng{background:#c62827;color:#fff;margin-top:10px}
     <div class="bar"><i id="barra"></i></div>
     <p class="sub" style="text-align:center;margin:10px 0 0">Biglietti creati: <b id="nEmessi">0</b></p>
   </div>
-  <div class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="cerca" placeholder="Cerca per nome, telefono o codice" autocomplete="off"></div>
+  <div class="filt"><div class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="cerca" placeholder="Cerca per nome, telefono o codice" autocomplete="off"></div><button class="sec" id="btnOrd"></button></div>
   <div class="card" id="ultimi"></div>
-  <button class="sec" id="btnReset">Azzera ingressi</button>
   <button class="dng" id="btnWipe">Cancella TUTTI i dati</button>
 </section>
 </main>
@@ -371,21 +375,44 @@ $("btnCam").onclick = () => stream ? stopCam() : startCam();
 $("btnVer").onclick = () => { check($("manuale").value); $("manuale").value=""; };
 
 // ---- CONTEGGIO ----
-$("btnReset").onclick = () => {
-  if(confirm("Azzerare tutti gli ingressi registrati?")){ S.scanned={}; save(); $("res").style.display="none"; render(); }
-};
-function render(){
+let entratiSu=true;
+function counts(){
   const n=Object.keys(S.scanned).length;
   $("nScan").textContent=n; $("barra").style.width=(n/200*100)+"%";
   $("nEmessi").textContent=Object.keys(S.issued).length;
-  updNext();
-  const q=($("cerca").value||"").trim().toLowerCase();
-  const rows = q ? Object.entries(S.issued).filter(([c,v])=>(v.name+" "+c+" "+(v.tel||"")).toLowerCase().includes(q)).map(([c,v])=>[c,v,S.scanned[c]])
-    : Object.entries(S.scanned).sort((a,b)=>b[1]-a[1]).slice(0,15).map(([c,t])=>[c,S.issued[c]||{name:"—"},t]);
-  $("ultimi").innerHTML = rows.length ? rows.map(([c,v,t])=>`<div class="li"><span>${esc(v.name)}<br><small class="mono">${c}${v.tel?" · "+esc(v.tel):""}</small></span><small>${t?"Entrato "+fmt(t):"Non entrato"}</small></div>`).join("") : '<p class="sub" style="margin:0">'+(q?"Nessun risultato.":"Nessun ingresso ancora.")+'</p>';
-  const em=Object.entries(S.issued).sort((a,b)=>b[1].ts-a[1].ts);
-  $("lista").innerHTML = em.length ? em.map(([c,v])=>`<div class="li"><span>${esc(v.name)}<br><small class="mono">${c}${S.scanned[c]?" · entrato":""}</small></span><button class="sec" onclick="rivedi('${c}')">Rivedi</button></div>`).join("") : '<p class="sub" style="margin:0">Nessun biglietto creato.</p>';
 }
+function match(c,v,q){ return !q || (v.name+" "+c+" "+(v.tel||"")).toLowerCase().includes(q); }
+function render(){
+  counts();
+  $("btnOrd").innerHTML = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:block;transition:transform .2s;transform:rotate('+(entratiSu?180:0)+'deg)"><path d="M4 7h16M7 12h10M9.5 17h5"/></svg>';$("btnOrd").title=entratiSu?"Entrati in alto":"Entrati in basso";
+  const q=($("cerca").value||"").trim().toLowerCase();
+  const rows = Object.entries(S.issued).filter(([c,v])=>match(c,v,q)).sort((a,b)=>{
+    const ia=S.scanned[a[0]]?1:0, ib=S.scanned[b[0]]?1:0;
+    if(ia!==ib) return entratiSu ? ib-ia : ia-ib;
+    return a[1].n-b[1].n;
+  });
+  $("ultimi").innerHTML = rows.length ? rows.map(([c,v])=>{ const t=S.scanned[c];
+    return `<div class="sw" data-c="${c}">${t?'<div class="bk">Annulla ingresso</div>':''}<div class="li${t?' in':''}"><span>${esc(v.name)}<br><small class="mono">${c}${v.tel?" · "+esc(v.tel):""}</small></span><small>${t?"Entrato "+fmt(t):"Non entrato"}</small></div></div>`; }).join("") : '<p class="sub" style="margin:0">'+(q?"Nessun risultato.":"Nessun biglietto creato.")+'</p>';
+}
+// Swipe a sinistra per annullare l'ingresso (la lista non si riordina da sola)
+(function(){
+  let el=null, x0=0, dx=0, y0=0, moved=false;
+  const L=$("ultimi");
+  L.addEventListener("pointerdown",e=>{ const li=e.target.closest(".li.in"); if(!li) return; el=li; x0=e.clientX; y0=e.clientY; dx=0; moved=false; li.classList.add("drag"); });
+  L.addEventListener("pointermove",e=>{ if(!el) return; dx=Math.min(0,e.clientX-x0); if(Math.abs(e.clientY-y0)>Math.abs(e.clientX-x0)&&!moved){ end(false); return; } if(dx<-6){ moved=true; try{ el.setPointerCapture(e.pointerId); }catch(_){} } el.style.transform="translateX("+dx+"px)"; });
+  function end(commit){
+    if(!el) return; const li=el; el=null; li.classList.remove("drag");
+    if(commit && dx<-90){
+      const c=li.parentNode.dataset.c; delete S.scanned[c]; save(); counts();
+      li.style.transform=""; li.classList.remove("in"); li.querySelector("small").textContent="Ingresso annullato";
+      const bk=li.parentNode.querySelector(".bk"); if(bk) bk.remove();
+      try{ navigator.vibrate&&navigator.vibrate(40); }catch(_){}
+    } else li.style.transform="";
+  }
+  L.addEventListener("pointerup",()=>end(true));
+  L.addEventListener("pointercancel",()=>end(false));
+})();
+$("btnOrd").onclick=()=>{ entratiSu=!entratiSu; render(); };
 function rivedi(c){ drawTicket(c,S.issued[c].name); $("prev").scrollIntoView({behavior:"smooth"}); }
 function esc(s){ return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m])); }
 function cleanTel(el){ let v=el.value.replace(/[^\d+]/g,""); if(v.startsWith("+39")) v=v.slice(3); else if(!/^\+3?$/.test(v)) v=v.replace(/\+/g,""); if(v!==el.value) el.value=v; }
