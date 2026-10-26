@@ -61,11 +61,10 @@ button.dng{background:#c62827;color:#fff;margin-top:10px}
 <body>
 <main>
 <section class="tab on" id="t-crea">
-  <div class="range"><span>Biglietti da</span><input id="da" type="number" inputmode="numeric" min="1" max="200"><span>a</span><input id="a" type="number" inputmode="numeric" min="1" max="200"></div>
-  <p class="sub" id="next"></p>
   <h1>Crea biglietto</h1>
+  <p class="sub">Inserisci i dati dell’ospite per generare il biglietto con QR code.</p>
   <div class="card">
-    <div id="nome1w"><label>Nome dell’ospite</label>
+    <div id="nome1w"><label id="nomeLbl">Nome dell’ospite</label>
     <input id="nome" placeholder="Es. Marco Rossi" autocomplete="off"></div>
     <div class="row">
       <div style="flex:1;min-width:0"><label>Numero di telefono</label>
@@ -150,9 +149,9 @@ document.querySelectorAll("nav button").forEach(b => b.onclick = () => {
 });
 
 // ---- CREA ----
-function rng(){ return [Math.max(1,parseInt($("da").value)||1), Math.min(200,parseInt($("a").value)||200)]; }
+function rng(){ return [1,200]; }
 function nextIdx(){ const [lo,hi]=rng(); return CODES.findIndex((c,k)=>k+1>=lo&&k+1<=hi&&!S.issued[c]); }
-function updNext(){ const i=nextIdx(); $("next").textContent = i<0 ? "Biglietti finiti in questo intervallo." : "Prossimo biglietto: n° "+(i+1); }
+function updNext(){}
 function telNorm(t){ let d=(t||"").replace(/[^\d+]/g,""); if(d.startsWith("+")) d=d.slice(1); else if(d.startsWith("00")) d=d.slice(2); else if(d.length>=9&&d.length<=10&&d[0]==="3") d="39"+d; return d.replace(/\D/g,""); }
 let cur = null;
 function renderTicket(c, code, name){
@@ -193,8 +192,9 @@ function freeIdx(){ const [lo,hi]=rng(), f=[]; CODES.forEach((c,k)=>{ if(k+1>=lo
 function emit(entries){
   const free=freeIdx(), q=entries.length;
   if(q>free.length){ alert("In questo intervallo restano solo "+free.length+" biglietti."); return; }
-  const [lo,hi]=rng(); S.from=lo; S.to=hi;
   const g=Date.now();
+  const leader=entries[0].name;
+  entries.forEach((e,j)=>{ if(j>0) e.name=e.name+" ("+leader+")"; });
   free.slice(0,q).forEach((i,j)=>{ S.issued[CODES[i]]={name:entries[j].name, tel:entries[j].tel, ts:g+j, n:i+1, g}; });
   save();
   drawTicket(CODES[free[0]],entries[0].name);
@@ -215,7 +215,7 @@ $("btnCrea").onclick = () => {
 function updBtn(){
   const q=qty();
   $("btnCrea").textContent = q>1 ? "Inserisci i "+q+" partecipanti" : "Crea biglietto";
-  $("nome1w").style.display = q>1 ? "none" : "block";
+  $("nomeLbl").textContent = q>1 ? "Nome del capogruppo" : "Nome dell’ospite";
 }
 $("qta").oninput=updBtn;
 // ---- Popup partecipanti ----
@@ -388,8 +388,8 @@ function render(){
 }
 function rivedi(c){ drawTicket(c,S.issued[c].name); $("prev").scrollIntoView({behavior:"smooth"}); }
 function esc(s){ return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m])); }
-$("da").value=S.from||1; $("a").value=S.to||200;
-["da","a"].forEach(id=>$(id).oninput=()=>{ const [lo,hi]=rng(); S.from=lo; S.to=hi; save(); updNext(); });
+function cleanTel(el){ let v=el.value.replace(/[^\d+]/g,""); if(v.startsWith("+39")) v=v.slice(3); else if(!/^\+3?$/.test(v)) v=v.replace(/\+/g,""); if(v!==el.value) el.value=v; }
+["tel","wzP"].forEach(id=>$(id).addEventListener("input",()=>cleanTel($(id))));
 $("cerca").oninput=render;
 render();
 </script>
