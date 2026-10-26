@@ -49,6 +49,7 @@ nav button.on{color:var(--acc)}
 .sw{position:relative;overflow:hidden;border-bottom:1px solid var(--line)}
 .sw:last-child{border:0}
 .sw .bk{position:absolute;inset:0;background:var(--bad);color:#fff;display:flex;align-items:center;justify-content:flex-end;padding-right:16px;font-size:13px;font-weight:600}
+.sw .bk.go{background:var(--ok)}
 .sw .li{padding:10px 16px;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;position:relative;background:var(--card);border:0;touch-action:pan-y;transition:transform .2s}
 .sw .li.in{background:color-mix(in srgb,var(--ok) 16%,var(--card))}
 .sw .li.drag{transition:none}
@@ -412,9 +413,9 @@ function render(){
     return a[1].n-b[1].n;
   });
   $("ultimi").innerHTML = rows.length ? rows.map(([c,v])=>{ const t=S.scanned[c];
-    return `<div class="sw" data-c="${c}"><div class="bk">Annulla ingresso</div><div class="li${t?' in':''}"><span>${esc(v.name)}<br><small class="mono">${c}${v.tel?" · "+esc(v.tel):""}</small></span><small>${t?"Entrato alle "+fmt(t):"Non entrato"}</small></div></div>`; }).join("") : '<p class="sub" style="margin:0;padding:16px">'+(q?"Nessun risultato.":"Nessun biglietto creato.")+'</p>';
+    return `<div class="sw" data-c="${c}"><div class="bk${t?'':' go'}">${t?"Annulla ingresso":"Segna entrata"}</div><div class="li${t?' in':''}"><span>${esc(v.name)}<br><small class="mono">${c}${v.tel?" · "+esc(v.tel):""}</small></span><small>${t?"Entrato alle "+fmt(t):"Non entrato"}</small></div></div>`; }).join("") : '<p class="sub" style="margin:0;padding:16px">'+(q?"Nessun risultato.":"Nessun biglietto creato.")+'</p>';
 }
-// Swipe a sinistra = annulla ingresso; tocco prolungato = alterna entrato / non entrato (la lista non si riordina da sola)
+// Swipe a sinistra su un contatto = alterna entrato / non entrato (la lista non si riordina da sola)
 function bubble(){ try{ AC=AC||new (window.AudioContext||window.webkitAudioContext)(); const t=AC.currentTime, o=AC.createOscillator(), g=AC.createGain();
   o.type="sine"; o.frequency.setValueAtTime(380,t); o.frequency.exponentialRampToValueAtTime(1100,t+.12);
   g.gain.setValueAtTime(.0001,t); g.gain.exponentialRampToValueAtTime(.35,t+.02); g.gain.exponentialRampToValueAtTime(.0001,t+.18);
@@ -423,24 +424,22 @@ function setRow(li, c, entered){
   if(entered){ S.scanned[c]=Date.now(); } else { delete S.scanned[c]; }
   save(); counts();
   li.classList.toggle("in",entered);
+  const bk=li.parentNode.querySelector(".bk"); bk.classList.toggle("go",!entered); bk.textContent = entered ? "Annulla ingresso" : "Segna entrata";
   li.querySelector(":scope > small").textContent = entered ? "Entrato alle "+fmt(S.scanned[c]) : "Non entrato";
   bubble(); nav(40);
 }
 (function(){
-  let el=null, x0=0, dx=0, y0=0, moved=false, timer=null, long=false;
+  let el=null, x0=0, y0=0, dx=0, moved=false;
   const L=$("ultimi");
   L.addEventListener("contextmenu",e=>e.preventDefault());
-  L.addEventListener("pointerdown",e=>{ const li=e.target.closest(".li"); if(!li) return; el=li; x0=e.clientX; y0=e.clientY; dx=0; moved=false; long=false; li.classList.add("drag");
-    clearTimeout(timer); timer=setTimeout(()=>{ if(!el) return; long=true; const c=el.parentNode.dataset.c; setRow(el,c,!S.scanned[c]); el.style.transform=""; },550); });
-  L.addEventListener("pointermove",e=>{ if(!el||long) return;
+  L.addEventListener("pointerdown",e=>{ const li=e.target.closest(".li"); if(!li) return; el=li; x0=e.clientX; y0=e.clientY; dx=0; moved=false; li.classList.add("drag"); });
+  L.addEventListener("pointermove",e=>{ if(!el) return;
     const mx=e.clientX-x0, my=e.clientY-y0;
-    if(Math.abs(mx)>8||Math.abs(my)>8) clearTimeout(timer);
-    if(Math.abs(my)>Math.abs(mx)&&!moved){ end(false); return; }
-    if(!el.classList.contains("in")) return;
+    if(Math.abs(my)>Math.abs(mx)&&!moved&&Math.abs(my)>8){ end(false); return; }
     dx=Math.min(0,mx); if(dx<-6){ moved=true; try{ el.setPointerCapture(e.pointerId); }catch(_){} } el.style.transform="translateX("+dx+"px)"; });
   function end(commit){
-    clearTimeout(timer); if(!el) return; const li=el; el=null; li.classList.remove("drag");
-    if(commit && !long && li.classList.contains("in") && dx<-90){ setRow(li,li.parentNode.dataset.c,false); }
+    if(!el) return; const li=el; el=null; li.classList.remove("drag");
+    if(commit && dx<-90){ const c=li.parentNode.dataset.c; setRow(li,c,!S.scanned[c]); }
     li.style.transform="";
   }
   L.addEventListener("pointerup",()=>end(true));
