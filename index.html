@@ -49,8 +49,8 @@ nav button.on{color:var(--acc)}
 #ultimi{padding:0;overflow:hidden}
 .sw{position:relative;overflow:hidden;border-bottom:1px solid var(--line)}
 .sw:last-child{border:0}
-.sw .bk{position:absolute;inset:0;background:var(--bad);color:#fff;display:flex;align-items:center;justify-content:flex-end;padding-right:16px;font-size:13px;font-weight:600; transition: background-color 3s ease-out}
-.sw .bk.go{background:var(--ok); transition: background-color 3s ease-out}
+.sw .bk{position:absolute;inset:0;background:var(--bad);color:#fff;display:flex;align-items:center;justify-content:flex-end;padding-right:16px;font-size:13px;font-weight:600; transition: background-color 1s ease-in}
+.sw .bk.go{background:var(--ok); transition: background-color 1s ease-in}
 .sw .li{padding:10px 16px;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;position:relative;background:var(--card);border:0;touch-action:pan-y;transition:transform .2s}
 .sw .li.in{background:color-mix(in srgb,var(--ok) 16%,var(--card))}
 .sw .li.drag{transition:none}
@@ -79,10 +79,10 @@ button.dng{background:#c62827;color:#fff;margin-top:10px}
   <p class="sub">Inserisci i dati per generare il biglietto.</p>
   <div class="card">
     <div id="nome1w"><label id="nomeLbl">Nome dell’ospite</label>
-    <input id="nome" placeholder="Es. Marco Rossi" autocomplete="off"></div>
+    <input id="nome" placeholder="Es. Carmine Russo" autocomplete="off"></div>
     <div class="row">
       <div style="flex:1;min-width:0"><label>Numero di telefono</label>
-      <input id="tel" type="tel" inputmode="tel" placeholder="Es. 333 1234567" autocomplete="off"></div>
+      <input id="tel" type="tel" inputmode="tel" placeholder="Es. 321 4567 890" autocomplete="off"></div>
       <div style="width:92px"><label>N° biglietti</label>
       <input id="qta" type="number" inputmode="numeric" min="1" max="50" value="1" style="text-align:center"></div>
     </div>
@@ -110,7 +110,7 @@ button.dng{background:#c62827;color:#fff;margin-top:10px}
 
 <section class="tab" id="t-conta">
   <h1>Gestione biglietti</h1>
-  <p class="sub">Monitora gli utenti e gli ingressi</p>
+  <p class="sub">Visualizza gli utenti e monitora gli ingressi.</p>
   <div class="card">
     <div class="big"><span id="nScan">0</span><span style="font-size:22px;color:var(--mut)"> / 200</span></div>
     <div class="bar"><i id="barraEm"></i><i id="barra"></i></div>
