@@ -43,6 +43,14 @@ nav button.on{color:var(--acc)}
 .li:last-child{border:0}.li small{color:var(--mut)}
 .li button{width:auto;padding:6px 12px;font-size:13px}
 .mono{font-family:ui-monospace,Menlo,monospace}
+
+#ov{position:fixed;inset:0;z-index:50;display:none;flex-direction:column;align-items:center;justify-content:center;gap:18px;color:#fff;text-align:center;padding:24px}
+#ov.ok{background:#1f9d55}#ov.bad{background:#c62828}
+#ov svg{width:56vmin;height:56vmin;fill:none;stroke:#fff;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+#ov h2{font-size:34px;margin:0}#ov p{font-size:18px;margin:0;opacity:.95}
+#ov button{background:#fff;color:#111;max-width:340px;margin-top:10px}
+#toast{position:fixed;left:16px;right:16px;bottom:90px;background:#1f1e1d;color:#fff;padding:14px;border-radius:12px;font-size:14px;text-align:center;display:none;z-index:60}
+button.dng{background:#c62828;color:#fff;margin-top:10px}
 </style>
 </head>
 <body>
@@ -60,7 +68,7 @@ nav button.on{color:var(--acc)}
   </div>
   <canvas id="prev"></canvas>
   <div id="azioni" style="display:none" class="row">
-    <button class="wa" id="btnWa">Inoltra su WhatsApp</button>
+    <button class="wa" id="btnWa">Invia su WhatsApp</button>
     <button class="sec" id="btnSalva" style="width:40%">Salva</button>
   </div>
   <h1 style="font-size:18px;margin-top:22px">Biglietti creati</h1>
@@ -91,6 +99,7 @@ nav button.on{color:var(--acc)}
   <div class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="cerca" placeholder="Cerca per nome, telefono o codice" autocomplete="off"></div>
   <div class="card" id="ultimi"></div>
   <button class="sec" id="btnReset">Azzera ingressi</button>
+  <button class="dng" id="btnWipe">Cancella TUTTI i dati</button>
 </section>
 </main>
 <nav>
@@ -99,6 +108,8 @@ nav button.on{color:var(--acc)}
   <button data-t="conta"><svg viewBox="0 0 24 24"><path d="M5 20V10M12 20V4M19 20v-7"/></svg>Conteggio</button>
 </nav>
 
+<div id="ov"><svg id="ovI" viewBox="0 0 24 24"></svg><h2 id="ovT"></h2><p id="ovD"></p><button id="btnAgain">Scannerizza di nuovo</button></div>
+<div id="toast"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
@@ -115,7 +126,7 @@ const fmt = ts => new Date(ts).toLocaleTimeString("it-IT",{hour:"2-digit",minute
 document.querySelectorAll("nav button").forEach(b => b.onclick = () => {
   document.querySelectorAll("nav button").forEach(x => x.classList.toggle("on", x===b));
   document.querySelectorAll(".tab").forEach(t => t.classList.toggle("on", t.id==="t-"+b.dataset.t));
-  if(b.dataset.t!=="leggi") stopCam();
+  if(b.dataset.t!=="leggi") stopCam(); else { $("ov").style.display="none"; pause=false; startCam(); }
   render();
 });
 
@@ -180,9 +191,21 @@ $("btnCrea").onclick = () => {
   $("prev").scrollIntoView({behavior:"smooth"});
 };
 function blobOf(){ return new Promise(r => $("prev").toBlob(r,"image/png")); }
+function toast(t){ const e=$("toast"); e.textContent=t; e.style.display="block"; setTimeout(()=>e.style.display="none",5000); }
 $("btnWa").onclick = () => {
-  const text = "Ciao "+cur.name+"! Ecco il tuo biglietto per la festa di Halloween. Mostra il QR all’ingresso. Codice: "+cur.code;
-  window.open("https://wa.me/"+telNorm(cur.tel)+"?text="+encodeURIComponent(text),"_blank");
+  const url = "https://wa.me/"+telNorm(cur.tel);
+  const bp = blobOf();
+  let copied = false;
+  try{
+    navigator.clipboard.write([new ClipboardItem({"image/png": bp})]).then(()=>toast("Biglietto copiato: nella chat tieni premuto sulla barra messaggio e incolla")).catch(()=>{});
+    copied = true;
+  }catch(e){}
+  if(!copied){
+    bp.then(async blob=>{ const f=new File([blob],"biglietto-"+cur.code+".png",{type:"image/png"});
+      try{ if(navigator.canShare&&navigator.canShare({files:[f]})){ await navigator.share({files:[f]}); return; } }catch(e){ return; }
+      salva(blob); toast("Immagine salvata: allegala nella chat WhatsApp"); });
+  }
+  window.open(url,"_blank");
 };
 function salva(blob){
   const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
@@ -195,39 +218,61 @@ $("btnSalva").onclick = async () => {
 };
 
 // ---- LEGGI ----
+let AC=null;
+function beep(ok){ try{ AC=AC||new (window.AudioContext||window.webkitAudioContext)(); const t=AC.currentTime;
+  (ok?[[880,0],[1320,.12]]:[[220,0],[180,.2]]).forEach(([f,d])=>{ const o=AC.createOscillator(),g=AC.createGain(); o.frequency.value=f; o.type=ok?"sine":"square"; g.gain.setValueAtTime(.3,t+d); g.gain.exponentialRampToValueAtTime(.001,t+d+(ok?.2:.35)); o.connect(g); g.connect(AC.destination); o.start(t+d); o.stop(t+d+.4); }); }catch(e){} }
+function showRes(ok,title,desc){
+  const o=$("ov"); o.className=ok?"ok":"bad"; o.style.display="flex";
+  $("ovI").innerHTML = ok ? '<path d="M4 12.5l5 5L20 6.5"/>' : '<path d="M5 5l14 14M19 5L5 19"/>';
+  $("ovT").textContent=title; $("ovD").textContent=desc;
+  beep(ok); if(ok) nav(120); else nav(300,100,300);
+}
 function check(raw){
   const code = (raw||"").trim().toUpperCase();
-  const r = $("res"); r.style.display="block";
-  if(!CODES.includes(code)){
-    r.className="res bad"; $("resT").textContent="Non valido"; $("resD").textContent="Questo codice non esiste."; nav(200,100,200);
-  } else if(S.scanned[code]){
-    r.className="res warn"; $("resT").textContent="Già utilizzato"; $("resD").textContent="Entrato alle "+fmt(S.scanned[code])+(S.issued[code]?" · "+S.issued[code].name:""); nav(400);
-  } else {
-    S.scanned[code]=Date.now(); save();
-    r.className="res ok"; $("resT").textContent="Valido ✓"; $("resD").textContent=(S.issued[code]?S.issued[code].name+" · ":"")+code; nav(80);
-  }
+  pause=true;
+  if(!CODES.includes(code)) showRes(false,"Non valido","Questo codice non esiste.");
+  else if(S.scanned[code]) showRes(false,"Già utilizzato","Entrato alle "+fmt(S.scanned[code])+(S.issued[code]?" · "+S.issued[code].name:""));
+  else { S.scanned[code]=Date.now(); save(); showRes(true,"Valido",(S.issued[code]?S.issued[code].name+" · ":"")+code); }
   render();
 }
+$("btnAgain").onclick=()=>{ $("ov").style.display="none"; pause=false; if(!stream) startCam(); };
+$("btnWipe").onclick=()=>{ if(confirm("Cancellare TUTTI i dati (biglietti creati, ingressi, impostazioni)? L'operazione non si può annullare.")){ try{localStorage.clear();}catch(e){} location.reload(); } };
 function nav(...p){ try{ navigator.vibrate&&navigator.vibrate(p); }catch(e){} }
 let stream=null, loop=null, pause=false;
 async function startCam(){
+  if(stream) return;
   try{
-    stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"},audio:false});
+    stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"},width:{ideal:1920},height:{ideal:1080}},audio:false});
+    const tr=stream.getVideoTracks()[0];
+    try{ const cap=tr.getCapabilities&&tr.getCapabilities();
+      if(cap&&cap.zoom){ const z=Math.min(cap.zoom.max,Math.max(cap.zoom.min,2)); await tr.applyConstraints({advanced:[{zoom:z}]}); }
+      if(cap&&cap.focusMode&&cap.focusMode.includes("continuous")) await tr.applyConstraints({advanced:[{focusMode:"continuous"}]});
+    }catch(e){}
     const v=$("video"); v.srcObject=stream; await v.play();
     $("btnCam").textContent="Ferma fotocamera";
+    let bd=null; try{ if("BarcodeDetector" in window) bd=new BarcodeDetector({formats:["qr_code"]}); }catch(e){}
     const cv=document.createElement("canvas"), cx=cv.getContext("2d",{willReadFrequently:true});
-    loop=setInterval(()=>{
-      if(pause||!v.videoWidth) return;
-      const s=Math.min(1,640/v.videoWidth); cv.width=v.videoWidth*s; cv.height=v.videoHeight*s;
-      cx.drawImage(v,0,0,cv.width,cv.height);
-      const d=cx.getImageData(0,0,cv.width,cv.height), q=jsQR(d.data,d.width,d.height);
-      if(q&&q.data){ pause=true; check(q.data); setTimeout(()=>pause=false,2500); }
-    },200);
-  }catch(e){ alert("Fotocamera non disponibile: usa l’inserimento manuale del codice."); }
+    let busy=false;
+    loop=setInterval(async()=>{
+      if(pause||busy||!v.videoWidth) return; busy=true;
+      try{
+        let data=null;
+        if(bd){ const r=await bd.detect(v); if(r.length) data=r[0].rawValue; }
+        if(!data){
+          const side=Math.min(v.videoWidth,v.videoHeight)*0.7, sx=(v.videoWidth-side)/2, sy=(v.videoHeight-side)/2, out=Math.min(800,Math.floor(side));
+          cv.width=out; cv.height=out; cx.drawImage(v,sx,sy,side,side,0,0,out,out);
+          const d=cx.getImageData(0,0,out,out), q=jsQR(d.data,out,out,{inversionAttempts:"attemptBoth"});
+          if(q&&q.data) data=q.data;
+        }
+        if(data) check(data);
+      }catch(e){}
+      busy=false;
+    },150);
+  }catch(e){ stream=null; alert("Fotocamera non disponibile: usa l’inserimento manuale del codice."); }
 }
 function stopCam(){
   clearInterval(loop); if(stream) stream.getTracks().forEach(t=>t.stop()); stream=null;
-  $("btnCam").textContent="Avvia fotocamera";
+  $("btnCam").textContent="Avvia fotocamera"; loop=null;
 }
 $("btnCam").onclick = () => stream ? stopCam() : startCam();
 $("btnVer").onclick = () => { check($("manuale").value); $("manuale").value=""; };
